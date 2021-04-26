@@ -26,10 +26,10 @@ jobs:
           hugo-version: "0.81.0"
           extended: true
 
-      - uses: c-hive/gha-yarn-cache@v1
-
       - name: Install yarn dependencies
-        run: yarn install
+        run: |
+          yarn set version latest
+          yarn install
 
       - name: Build static site with Hugo
         run: hugo --gc --enableGitInfo --cleanDestinationDir
