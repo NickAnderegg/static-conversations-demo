@@ -1,0 +1,142 @@
+---
+
+default: true
+
+# MD001 - Heading levels should only increment by one level at a time
+heading-increment: true
+
+# MD003 - Headings should always begin with hashmarks ("atx" style)
+heading-style:
+  style: "atx"
+
+# MD004 - Unordered list style. Always follow asterisk, dash, and plus for deeper nestings, e.g.:
+#
+# * Top level item
+#   - Second level item
+#     + Third level item
+ul-style:
+  style: sublist
+
+# MD005 - ALWAYS have consistent indentation for list items at the same level
+list-indent: true
+
+# MD007 - DO indent each level of an unordered list by four spaces
+ul-indent:
+  indent: 4
+
+# MD009 - Do not leave trailing spaces at the end of lines.
+#
+# Exception: Two spaces at the end of a line indicate a hard line break (<br> element).
+no-trailing-spaces:
+  br_spaces: 2
+  list_item_empty_lines: true
+
+# MD010 - DO NOT use hard tabs for indents; only spaces.
+
+# MD010 - Do NOT reverse the link syntax.
+
+# MD012 - DO NOT leave more than one consecutive blank line in a document.
+
+# MD013 - There is no limit on line length. Do not insert hard breaks; always soft wrap long paragraphs.
+line-length: false
+
+# MD018 - DO put a space between a heading indicator and the text.
+
+# MD019 - DO NOT put multiple spaces after the hash in a heading.
+
+# MD022 - DO put a blank line above and below each heading.
+blanks-around-headings:
+  lines_above: 1
+  lines_below: 1
+
+# MD023 - Headings MUST start at the beginning of the line.
+
+# MD024 - DO NOT put identical headings consecutively.
+no-duplicate-heading:
+  siblings_only: true
+
+# MD025 - DO NOT put multiple top-level headings in the same document.
+
+# MD026 - DO NOT put trailing punctuation in a heading that is contained in this list:
+no-trailing-punctuation:
+  punctuation: ".,;:。，；："
+
+# MD027 - DO put exactly one space after the blockquote symbol (>).
+
+# MD028 - DO put the blockquote symbol (>) in front of blank lines within a blockquote.
+
+# MD029 - ALWAYS begin ordered list items with the number 1, e.g.:
+#
+# 1. First item
+# 1. Second item
+# 1. Third item
+ol-prefix:
+  style: "one"
+
+# MD030 - DO put exactly one space after list markers.
+
+# MD031 - DO surround fenced code blocks with one blank line on each side.
+
+# MD032 - DO surround lists with one blank line on each side.
+
+# MD033 - Inline HTML is allowed; use it sparingly.
+no-inline-html: false
+
+# MD034 - DO NOT link to bare URLs. Place <brackets> around bare URLs.
+no-bare-urls: true
+
+# MD035 - Horizontal rule style
+hr-style: "---"
+
+# MD037 - DO NOT put spaces surrounding text inside of emphasis markers
+#
+# Good: Here is **bold** text.
+# Bad:  Here is ** bold ** text.
+
+# MD038 - DO NOT put spaces inside code span elements
+#
+# Good: `some code`
+# Bad:  ` some code `
+
+# MD039 - DO NOT put spaces surrounding text inside of link brackets
+
+# MD040 - DO specify the language used for fenced code blocks, e.g.:
+#
+# ```bash
+# #!/bin/bash
+# echo Hello world
+# ```
+
+# MD041 - First line in a file should be a top-level heading
+# unless there is a title in the page's frontmatter
+
+# MD042 - DO NOT leave links without a URL
+
+# MD043 - Headings must follow a specific structure; structure TBD
+# headings:
+#   - "## Section"
+#   - "### Subsection detail"
+
+# MD044 - Proper names should have the correct capitalization
+#
+# Names that disobey the following capitalization requirements will throw a linter error:
+proper-names:
+  - Zymbit
+  - Zymkey
+  - Raspberry Pi
+  - RPi
+  - HSM4
+  - Zymkey4
+  - HSM6
+
+# MD045 - Images should have alt text, e.g.
+#
+# ![Here is the alt text for this image](image.jpg)
+
+# MD046 - ALWAYS use code fences around code blocks (never indentation style)
+code-block-style: "fenced"
+
+# MD047 - File should end with a single newline character
+
+# MD048 - Code fences should always use triple backticks
+code-fence-style: "backtick"

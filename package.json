@@ -1,0 +1,45 @@
+{
+  "name": "anderegg-blog",
+  "version": "1.0.0",
+  "description": "Nick Anderegg's Blog",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "author": "Nick Anderegg",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wp --config webpack/dev.config.js",
+    "build": "wp --config webpack/prod.config.js",
+    "start": "npm run build",
+    "watch": "postcss assets/scss/theme.scss -o static/css/theme.css --watch"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.2.2",
+    "@babel/preset-env": "^7.2.3",
+    "autoprefixer": "^9.4.6",
+    "babel-loader": "^8.0.5",
+    "css-loader": "^2.1.0",
+    "cssnano": "^5.0.1",
+    "mini-css-extract-plugin": "^0.5.0",
+    "node-sass": "^4.13.1",
+    "optimize-css-assets-webpack-plugin": "^5.0.1",
+    "postcss-loader": "^3.0.0",
+    "sass-loader": "^7.1.0",
+    "style-loader": "^0.23.1",
+    "uglifyjs-webpack-plugin": "^2.1.1",
+    "webpack": "^4.29.0",
+    "webpack-merge": "^4.2.1",
+    "webpack-nano": "^0.6.1"
+  },
+  "dependencies": {
+    "@fullhuman/postcss-purgecss": "^4.0.3",
+    "cross-env": "^7.0.3",
+    "postcss": "^8.2.10",
+    "postcss-cli": "^8.3.1",
+    "postcss-import": "^14.0.1",
+    "postcss-nested": "^5.0.5",
+    "tailwindcss": "^2.1.1"
+  }
+}

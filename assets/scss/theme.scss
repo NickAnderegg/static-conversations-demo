@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    @apply text-gray-800;
+}
+
+h1, h2, h3, h4, h5, h6, strong {
+    @apply text-gray-900;
+}
+
+article > p, ul, ol {
+    @apply text-lg tracking-wide leading-loose;
+}
+
+article > div, p, ul, ol, pre:not(:last-child) {
+    @apply mb-6;
+}
+
+article > ol, ul {
+    @apply list-disc ml-8;
+}
+
+article > li:not(:last-of-type) {
+    @apply mb-2;
+}
+
+article p > code {
+    @apply p-1/2 bg-blue-100;
+}
+
+article > h2 {
+    @apply text-4xl my-8 font-bold text-black;
+}
+
+article > h3 {
+    @apply text-3xl my-8 font-bold text-black;
+}
+
+article > h4 {
+    @apply text-2xl my-8 font-bold text-black;
+}
+
+article > h5 {
+    @apply text-xl my-8 font-bold text-black;
+}
+
+a {
+    @apply border-b border-black text-black;
+}
+
+nav p > a {
+    @apply text-gray-500 border-gray-300;
+}
+
+div.highlight > pre {
+    @apply p-6;
+}
+
+/* purgecss ignore */
+pre.chroma {
+    @apply p-12 overflow-x-auto font-mono text-lg;
+}
+
+/*@screen md {
+    /* purgecss ignore
+    div.highlight {
+        @apply -mx-12;
+    }
+}*/
