@@ -1,0 +1,9 @@
+{{ $fileStr := (printf "%s%s" .File.Dir .File.BaseFileName) }}
+{{ $newIssueTemplate := (printf "---\npage: %s\n---\n\n" $fileStr) }}
+{{ $repo := getenv "GITHUB_REPOSITORY" }}
+
+{{ $queryStr := (querify "body" $newIssueTemplate) }}
+
+{{ $newIssueURL := (printf "https://github.com/%s/issues/new?%s" $repo $queryStr) }}
+
+<a href="{{ $newIssueURL }}" class="block border-0 font-mono my-8"><span class="text-blue-500 font-black mr-2">❱❱</span>Write new comment...</a>

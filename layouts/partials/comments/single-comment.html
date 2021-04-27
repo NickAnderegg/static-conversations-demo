@@ -1,11 +1,20 @@
 {{ $pageContext := (index . "context") }}
 {{ $comment := (index . "comment") }}
 {{ $user := (index $comment "user") }}
+{{ $newCommentUrl := split (index $comment "html_url") "#" }}
+{{ $newCommentUrl = index $newCommentUrl 0 }}
+{{ $newCommentUrl = (printf "%s#issuecomment-new" $newCommentUrl )}}
 
 {{ partial "comments/user.html" (dict "context" $pageContext "user" $user "comment" $comment) }}
 
 <div class="ml-4 tracking-wide leading-relaxed border-0 border-gray-300 pt-2 mt-6 mb-6">
     {{ index $comment "body" | markdownify }}
+
+    <div class="block flex flex-row my-8 w-full items-end">
+        <a href="{{ $newCommentUrl }}" class="ml-auto font-mono text-sm">
+            <span class="text-blue-500 font-black">❱❱</span>
+            Reply to this comment...</a>
+    </div>
 
     {{ $replies := (index $comment "replies") }}
     {{ $replies = sort (apply $replies "string" ".") }}

@@ -1,5 +1,7 @@
-<section id="comments" class="w-3/4 divide-y space-y-12">
+<section id="comments" class="w-3/4 space-y-12">
     <h2 class="text-2xl font-bold mb-6">Comments</h2>
+
+    {{ partial "newcomment.html" . }}
 
     {{ $pageContext := . }}
     {{ $comments := $.Site.Data.comment_mapping -}}
@@ -9,7 +11,7 @@
 
     {{ range $topLevelComments }}
         {{ $comment := (index $pageContext.Site.Data.comments .) }}
-        <div id="comment-{{ . }}" class="border-gray-400 border-solid pt-6">
+        <div id="comment-{{ . }}" class="border-gray-400 border-solid pt-6 border-t">
             {{ partial "comments/single-comment.html" (dict "context" $pageContext "comment" $comment) }}
         </div>
     {{ end }}
