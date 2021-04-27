@@ -1,0 +1,16 @@
+<section id="comments" class="w-3/4 divide-y space-y-12">
+    <h2 class="text-2xl font-bold mb-6">Comments</h2>
+
+    {{ $pageContext := . }}
+    {{ $comments := $.Site.Data.comment_mapping -}}
+    {{ $fileStr := (printf "%s%s" .File.Dir .File.BaseFileName) }}
+    {{ $topLevelComments := (index $comments $fileStr) }}
+    {{ $topLevelComments = sort (apply $topLevelComments "string" ".") }}
+
+    {{ range $topLevelComments }}
+        {{ $comment := (index $pageContext.Site.Data.comments .) }}
+        <div id="comment-{{ . }}" class="border-gray-400 border-solid pt-6">
+            {{ partial "comments/single-comment.html" (dict "context" $pageContext "comment" $comment) }}
+        </div>
+    {{ end }}
+</section>

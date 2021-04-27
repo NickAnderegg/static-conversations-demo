@@ -1,0 +1,25 @@
+{{ $pageContext := (index . "context") }}
+{{ $comment := (index . "comment") }}
+{{ $user := (index $comment "user") }}
+
+{{ partial "comments/user.html" (dict "context" $pageContext "user" $user "comment" $comment) }}
+
+<div class="ml-4 tracking-wide leading-relaxed border-0 border-gray-300 pt-2 mt-6 mb-6">
+    {{ index $comment "body" | markdownify }}
+
+    {{ $replies := (index $comment "replies") }}
+    {{ $replies = sort (apply $replies "string" ".") }}
+    {{ if $replies }}
+        <div class="flex flex-col pt-6 w-11/12 pl-4 ml-12 border-l-8 divide-y">
+        {{ range $replies }}
+            {{ $reply := (index $pageContext.Site.Data.comments (string .)) }}
+            <div class="flex flex-row">
+                <!-- <div class="w-1/12 flex-none border-r-8"></div> -->
+                <div class="self-end pl-4 ml-4 pb-6 px-6">
+                    {{ partial "comments/single-comment.html" (dict "context" $pageContext "comment" $reply) }}
+                </div>
+            </div>
+        {{ end }}
+        </div>
+    {{ end }}
+</div>

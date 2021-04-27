@@ -70,6 +70,6 @@
 <article class="mb-12">
     {{ .Content }}
 
-    {{ template "_internal/disqus.html" . }}
+    {{ partial "comments/comments.html" . }}
 </article>
 {{ end }}

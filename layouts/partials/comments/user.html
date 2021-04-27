@@ -1,0 +1,37 @@
+{{ $pageContext := (index . "context") }}
+{{ $user := (index . "user") }}
+{{ $comment := (index . "comment") }}
+
+{{ $user = index $pageContext.Site.Data.commenters $user }}
+{{ $avatar := ( index $user "avatar_url" )}}
+{{ $profileURL := ( index $user "html_url" )}}
+{{ $creationTime := (index $comment "created_at") }}
+{{ $updatedTime := (index $comment "updated_at") }}
+{{ $commentUrl := (index $comment "html_url") }}
+<div class="p-3 flex flex-row">
+    <a href="{{ $profileURL }}" class="flex flex-row border-0 p-0 m-0 w-24">
+        <img src="{{ $avatar }}" class="rounded-full max-h-24 m-1 shadow">
+    </a>
+    <div class="block flex flex-col ml-6 h-24 w-full">
+        <div class="block flex flex-row border-0 items-baseline">
+            <span class="inline-block font-mono font-extrabold text-lg mb-0 pb-0 mr-2 border-0 border-gray-800">
+                <a href="{{ $profileURL }}" class="border-0">{{ index $user "name" }}</a>
+            </span>
+            <span class="inline-block font-mono font-light text-gray-500 text-sm mt-0 pt-0">
+                <a href="{{ $profileURL }}" class="border-0">@{{ index $user "login" }}</a>
+            </span>
+        </div>
+        <div class="mt-2 text-gray-500 text-xs tracking-tight">
+            {{ index $user "bio" }}
+            <!-- <span class="block flex-grow align-text-bottom align-bottom"></span> -->
+        </div>
+        <a href="{{ $commentUrl }}" class="block text-xs mt-auto border-0">
+            Posted <span class="font-mono">{{ dateFormat "2006-01-02 at 15:04 MST" $creationTime }}</span>
+            {{ if ne $creationTime $updatedTime }}
+                <span class="text-gray-500 ml-2">
+                (Updated <span class="font-mono">{{ dateFormat "2006-01-02 at 15:04 MST" $updatedTime }}</span>)
+                </span>
+            {{ end }}
+        </a>
+    </div>
+</div>
