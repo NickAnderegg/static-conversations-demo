@@ -1,0 +1,37 @@
+name: parse comments from issues
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - deleted
+      - closed
+      - reopened
+  issue_comments:
+    types:
+      - created
+      - edited
+      - deleted
+  workflow_dispatch:
+
+jobs:
+  process-comments:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repository locally
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install the Static Conversations tool
+        run: |
+          gh release download -R NickAnderegg/static-conversations --pattern '*.whl'
+          pip install ./static_conversations*.whl
+
+      - name: Load comments
+        run: |
+          convo load
+          ls -lAh ./data
