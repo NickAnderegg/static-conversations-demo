@@ -6,6 +6,9 @@ on:
       - main
     paths-ignore:
       - '.github/**'
+  workflow_run:
+    workflows: ["parse comments from issues"]
+    branches: [main]
 
   workflow_dispatch:
 
