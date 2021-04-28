@@ -1,0 +1,14 @@
+<div class="w-4/5 mx-auto bg-blue-200 rounded my-16" role="alert">
+  <div class="flex flex-row w-full bg-blue-500 p-2 rounded rounded-b-none fill-current text-white">
+    {{ $iconURL := "/images/notice-flag.svg" | relURL }}
+    <img src="{{ $iconURL }}" class="w-4">
+    {{ with .Get "title" }}
+      <span class="ml-4 font-bold">{{ . }}</span>
+    {{ end }}
+  </div>
+{{ with .Inner}}
+  <div class="w-100 p-4"> {{ . | markdownify}}</div>
+{{ else }}
+  {{ errorf "No valid text variable or Inner content given"}}
+{{ end }}
+</div>
