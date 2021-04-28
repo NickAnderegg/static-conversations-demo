@@ -375,7 +375,46 @@ data
 </code></pre></div><p>And equally important is <a href="https://github.com/NickAnderegg/static-conversations/blob/main/convo/console/commands/load.py#L19">the <code>cli()</code> method in <code>convo/console/commands/load.py</code></a>, which triggers the <code>CommentManager</code> to load comment from the API:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">cli</span>(ctx):
     ctx<span style="color:#f92672">.</span>manager<span style="color:#f92672">.</span>load_comments()
-</code></pre></div><p>After we&rsquo;ve installed this package using <code>poetry install</code>, we can call <code>poetry run convo load</code> to load the comment manager, pull the relevant data from the GitHub API, parse the responses, and write them out to filesystem where Hugo expects to find them.</p>
+</code></pre></div><p>After we&rsquo;ve installed this package in a workflow, we can call <code>convo load</code> to load the comment manager, pull the relevant data from the GitHub API, parse the responses, and write them out to filesystem where Hugo expects to find them. Here&rsquo;s <a href="https://github.com/NickAnderegg/static-conversations-demo/blob/main/.github/workflows/process-comments.yml"><code>process-comments.yml</code> workflow file from the repository that hosts this site</a>, which contains the magic that allows this static site to have dynamic comments:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="color:#f92672">name</span>: <span style="color:#ae81ff">parse comments from issues</span>
+
+<span style="color:#f92672">on</span>:
+  <span style="color:#f92672">issues</span>:
+    <span style="color:#f92672">types</span>:
+      - <span style="color:#ae81ff">opened</span>
+      - <span style="color:#ae81ff">edited</span>
+<span style="color:#ae81ff">. . .</span>
+<span style="color:#f92672">jobs</span>:
+  <span style="color:#f92672">process-comments</span>:
+    <span style="color:#f92672">runs-on</span>: <span style="color:#ae81ff">ubuntu-latest</span>
+    <span style="color:#f92672">env</span>:
+      <span style="color:#f92672">GITHUB_TOKEN</span>: <span style="color:#ae81ff">${{ github.token }}</span>
+
+    <span style="color:#f92672">steps</span>:
+      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Checkout the repository locally</span>
+        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/checkout@v2</span>
+
+      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Install the Static Conversations tool</span>
+        <span style="color:#f92672">run</span>: |<span style="color:#e6db74">
+</span><span style="color:#e6db74">          sudo apt-get install python3.9
+</span><span style="color:#e6db74">          gh release download -R NickAnderegg/static-conversations --pattern &#39;*.whl&#39;
+</span><span style="color:#e6db74">          python3.9 -m pip install ./static_conversations*.whl</span>          
+
+        <span style="color:#75715e"># Where the magic happens</span>
+      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Load comments</span>
+        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">convo load</span>
+
+        <span style="color:#75715e"># Commit the updated `data/` directory back to this repo and push it</span>
+      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Commit updated comment files</span>
+        <span style="color:#f92672">run</span>: |<span style="color:#e6db74">
+</span><span style="color:#e6db74">          git config user.name github-actions[bot]
+</span><span style="color:#e6db74">          git config user.email github-actions[bot]@users.noreply.github.com
+</span><span style="color:#e6db74">
+</span><span style="color:#e6db74">          git add ./data
+</span><span style="color:#e6db74">          git commit -m &#34;[AUTOMATED] update blog comments&#34;
+</span><span style="color:#e6db74">
+</span><span style="color:#e6db74">          git push origin main</span>          
+</code></pre></div><p>And if you look just below this paragraph, you should see a comments section generated from the issues and issue comments on the repository at <a href="https://github.com/NickAnderegg/static-conversations-demo/issues">https://github.com/NickAnderegg/static-conversations-demo/issues</a>!</p>
 
     <section id="comments" class="w-3/4 space-y-12 pt-16">
     <h2 class="text-2xl font-bold mb-6">Comments</h2>
