@@ -7,6 +7,15 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language><atom:link href="https://nickanderegg.github.io/static-conversations-demo/post/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>GitHub Issues as a Comments Section</title>
+      <link>https://nickanderegg.github.io/static-conversations-demo/post/issue-based-comments/</link>
+      <pubDate>Tue, 27 Apr 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://nickanderegg.github.io/static-conversations-demo/post/issue-based-comments/</guid>
+      <description>&lt;p&gt;When I decided to start blogging again, there was no question that I&amp;rsquo;d be using &lt;a href=&#34;https://gohugo.io/&#34;&gt;Hugo&lt;/a&gt; to manage the content. I&amp;rsquo;ve used it to build static sites for countless professional projects, and it offers a special combination of power and flexibility that I haven&amp;rsquo;t really found in any other content management software.&lt;/p&gt;</description>
+    </item>
+    
+    <item>
       <title>Markdown Syntax Guide</title>
       <link>https://nickanderegg.github.io/static-conversations-demo/post/markdown-syntax/</link>
       <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
