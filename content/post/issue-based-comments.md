@@ -13,40 +13,39 @@ When I decided to start blogging again, there was no question that I'd be using 
 I was uncertain about whether or not to offer a comments section. The biggest argument in favor of comments sections is that they give readers an opportunity to engage directly with content authors. However, the cons abound:
 
 * Comments sections that aren't closely monitored often turn into spam-filled cesspools.
-* Providing a system to log in and manage comments, which requires a database backend, is a significant burden for a website built with a static site generator.
-* Integrating with an external service (e.g. Disqus) means that you're reliant on a third-party. If the company folds or pivots, all of that content may be lost. Plus, you're piping your readers' information directly to an external party.
-* Even a comments section with a strong spam filter can be an attractive target for trolls.
+* Providing a system to log in and manage comments, which requires a database backend, is difficult with a static site generator.
+* Integrating with an external service (e.g. Disqus) means that you're reliant on an external service to host the content.
 
-Initially, I didn't feel that the benefit of direct engagement with readers outweighed the negative side of comments sections. That is, until I noticed an existing tool that could be turned into a discussion forum by implementing a lightweight wrapper: GitHub Issues.
+Initially, I didn't feel that the benefit of direct engagement outweighed the negative side of comments sections. That is, until I realized an existing tool could be turned into a discussion forum: GitHub Issues.
 
-Over the years, I've seen GitHub repos used to [showcase various one-off demo projects](https://github.com/Wren6991/PicoDVI), and the `Issues` tab on those projects often fills with follow-up questions and suggestions for improvement—the same type of content you might find in a dedicated comments section. It occurred to me that this aspect of GitHub Issues could be intentionally harnessed to provide a comments section for a blog built with a static site generator!
+Over the years, I've seen GitHub repos used to [showcase various one-off demo projects](https://github.com/Wren6991/PicoDVI), and the "Issues" on those projects are often follow-up questions and suggestions for improvement—the same content you might find in a comments section. I decided to use this aspect of GitHub Issues to provide a backend for a comments section for a blog built with a static site generator!
 
 ## Implementation
 
-How can this be accomplished? It only requires a few tools:
+How can this be accomplished? It requires a few tools:
 
-* The Issues section for this site's repository, where the content will live.
-* The GitHub API, which can retrieve that content.
+* The Issues tab for this site's repository, where the comments will live.
+* The GitHub API, to retrieve that content.
 * GitHub Actions, to automatically re-build the site with all of the current comments.
-* A lightweight command-line interface to tie all of the pieces together.
+* A lightweight command-line tool to tie all of the pieces together.
 
 This post is going to focus on how I built the CLI that acts as the glue for all of these pieces: an app that I'm calling [Static Conversations](https://github.com/NickAnderegg/static-conversations).
 
 {{< alert title="Links in this post" >}}
-All links to the Static Conversations repository in this post will be pinned to the [tree at commit `88dfb24`](https://github.com/NickAnderegg/static-conversations/tree/88dfb2441c03d8f9ee2f6ef338bb237a81a9e603). The head of the `main` branch of this repo may change significantly over time.
+All links to the Static Conversations repository in this post will be pinned to the [tree at commit `a6aba5c`](https://github.com/NickAnderegg/static-conversations/tree/a6aba5cb742dfa05dbce93ed629d642e92e16416). The head of the `main` branch of this repo may change significantly over time.
 {{</ alert >}}
 
 {{< alert title="Note about code blocks" >}}
-Any occurrence of three dots separated by spaces, e.g. "`. . .`" within code blocks indicate code that was removed for brevity. In many places, docstrings and comments have also been removed from code examples without indication.
+Any occurrence of three dots separated by spaces, e.g. "`. . .`" within code blocks indicate code that was removed for brevity.
 {{</ alert >}}
 
 ### Getting Data from the API
 
-Surprisingly, we only need to call 2-3 API endpoints to get *all* of the data necessary to implement a full-featured comment management tool! A big reason for this is that each call to the GitHub API returns a significant number of the nodes that connect to the object returned by each endpoint.
+Surprisingly, we only need to call 2-3 API endpoints to get *all* of the data needed for a good comments section! That's because each call to the GitHub API returns a subset of the child nodes of the requested object.
 
 #### `GET`ting the repo's issues
 
-A single `GET` request made to `/repos/{owner}/{repo}/issues` returns not only [a list of the issues associated with a repository](https://docs.github.com/en/rest/reference/issues#list-repository-issues), but also an object representing the most important data of the `user` and `labels` fields, among other. This provides us with most of the information we need to render top-level comments. Here is the example response that GitHub provides for this endpoint (with the fields that are not relevant to our use case manually removed):
+A single `GET` request made to `/repos/{owner}/{repo}/issues` returns not only [a list of the issues associated with a repository](https://docs.github.com/en/rest/reference/issues#list-repository-issues), but also fields like `user` and `labels`, among others. This gives us most of the information we need to render top-level comments. Here is the example response that GitHub provides for this endpoint (with irrelevant fields manually removed):
 
 ```json
 [
@@ -89,7 +88,7 @@ A single `GET` request made to `/repos/{owner}/{repo}/issues` returns not only [
 
 #### Polling for replies
 
-If we want to allow our commenters to reply to other comments, they can do so by posting comments on the issues that represent the top-level comments. A `GET` request to the `/repos/{owner}/{repo}/issues/{issue_number}/comments` endpoint, substituting the issue's `number` field for `{issue_number}` in the API request path, returns all replies to a top-level comment. Here is the [sample response](https://docs.github.com/en/rest/reference/issues#list-issue-comments) that GitHub provides for this endpoint, again with irrelevant fields removed:
+If we want to allow comment replies, users can post comments on the issue that represents a top-level comment. A `GET` request to the `/repos/{owner}/{repo}/issues/{issue_number}/comments` endpoint, substituting the issue's `number` field into the API request path, returns all replies to a top-level comment. Here is a [sample response](https://docs.github.com/en/rest/reference/issues#list-issue-comments) that GitHub provides for this endpoint:
 
 ```json
 [
@@ -114,7 +113,7 @@ If we want to allow our commenters to reply to other comments, they can do so by
 
 #### Learning more about each commenter
 
-Although most endpoints of the GitHub API return the nodes connected to the object returned by each endpoint, those responses don't necessarily contain *all* of the fields present in the connected nodes. For our particular use case, we'll need to make an additional `GET` request to `/users/{username}` for each commenter. Unfortunately, this request to get the four additional fields relevant to us (`name`, `bio`, `created_at`, and `updated_at`) requires GitHub to return an object with 23 irrelevant fields. Those have been removed from the example response presented here:
+Although most endpoints of the API return the child nodes of the requested object, those responses don't contain *all* of the child's fields. In this case, we'll need to make an additional `GET` request to `/users/{username}` for each commenter to get all of the fields we need:
 
 ```json
 {
@@ -130,11 +129,11 @@ Although most endpoints of the GitHub API return the nodes connected to the obje
 }
 ```
 
-These fields aren't critical, but they add some polish to our comments section. The `name` and `bio` fields let us show who is commenting, while the `created_at` and `updated_at` fields are useful if we want to implement some rudimentary filtering, such as filtering out comments from brand new accounts.
+These additional fields aren't critical, but they add some polish to the comments section. The `name` and `bio` fields tell readers about the commenter, while the `created_at` field could be used to filter out comments from new accounts.
 
 ### Building the CLI Tool
 
-Modern Python tools like [Poetry](https://python-poetry.org/) make it much easier to build and run a CLI than it has been in the past. Once we define our dependencies in the `pyproject.toml` file, [just two lines](https://github.com/NickAnderegg/static-conversations/blob/88dfb2441c03d8f9ee2f6ef338bb237a81a9e603/pyproject.toml#L26) allow us to specify how the library should be run when called from the command line:
+Using [Poetry](https://python-poetry.org/) for package management, we can define our dependencies in the `pyproject.toml` file, and in [just two lines](https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/pyproject.toml#L26), specify how the library should be run when called from the command line:
 
 ```toml
 . . .
@@ -143,24 +142,24 @@ convo = 'convo.console:cli'
 . . .
 ```
 
-Then when we run `poetry run convo` from the command line, Poetry will call the `cli()` function present in the `convo.console` module.
+Then, `poetry run convo` on the command line will call the `cli()` function present in the `convo.console` module.
 
 #### Structuring the project
 
-When I write any new project from scratch, I always struggle with balancing the principle of ["You Aren't Gonna Need It"](https://martinfowler.com/bliki/Yagni.html) and the dread of having to refactor something in the future if I want to change even the most basic functionality. The approach I often take to this problem—and the approach I've taken here—is to freely add utility modules/classes/functions in any areas where it won't result in significant extra work in the short-term, especially if these additions just separate the various functional components of the project.
+When I write any new project from scratch, I always struggle with balancing the principle of ["You Aren't Gonna Need It"](https://martinfowler.com/bliki/Yagni.html) and the dread of having to refactor something in the future if I want to add functionality. The approach I often take—and the approach I've taken here—is to freely add utility modules/classes/functions if they won't result in significant extra work in the short-term, especially if these additions help separate the functional components of the project.
 
 In this case, we have four (sub-)modules:
 
 * **`convo`:** The `__init__.py` implements the `CommentManager` class, which manages and processes all the data we need for our comments section.
-* **`convo.api`:** This module implements the `GitHubAPI` class, which manages communication with the GitHub API.
-* **`convo.config`:** A module that stores configuration for the tool. At this stage, the tool's configuration is read from environment variables.
-* **`convo.console`:** In its current form, this is essentially just a lightweight wrapper that calls methods provided by a `CommentManager` instance.
+* **`convo.api`:** Implements the `GitHubAPI` class, which handles communication with the API.
+* **`convo.config`:** Stores configuration for the tool.
+* **`convo.console`:** In its current form, this is only a lightweight wrapper that calls methods provided by a `CommentManager` instance.
 
 ##### Configuring the app
 
-The simplest of these four modules is `convo.config`. Because this tool is intended to run in a GitHub Workflow, we can read get everything we need to authenticate with the API from [environment variables provided by the runner environment](https://docs.github.com/en/actions/reference/environment-variables#default-environment-variables). The variables we need to read are `GITHUB_ACTOR`, to determine the user which we will use to authenticate; `GITHUB_REPOSITORY`, which tells us where our workflow is running, and `GITHUB_TOKEN`; which we will use [to authenticate with the API](https://docs.github.com/en/actions/reference/authentication-in-a-workflow#about-the-github_token-secret).
+The simplest module is `convo.config`. Because this tool is intended to run in a GitHub Workflow, we can read everything we need to authenticate with the API from [environment variables](https://docs.github.com/en/actions/reference/environment-variables#default-environment-variables): `GITHUB_ACTOR`, `GITHUB_REPOSITORY`, and [`GITHUB_TOKEN`](https://docs.github.com/en/actions/reference/authentication-in-a-workflow#about-the-github_token-secret).
 
-We also [implement a `get_env()`](https://github.com/NickAnderegg/static-conversations/blob/main/convo/config/__init__.py#L57) static method that allows us to pass an arbitrary number of positional arguments specifying which environment variables to read, in order of priority. This way, if we have some reason to override the default `GITHUB_TOKEN` value, we can specify a `CONVO_TOKEN` or `GH_TOKEN` variable with the override value.
+It [implements a `get_env()`](https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/config/__init__.py#L57) method that accepts arbitrary positional arguments specifying which environment variables to read, in order of priority. This way, we can override the `GITHUB_TOKEN` value, for example, by specifying a `CONVO_TOKEN` variable.
 
 ```python
 . . .
@@ -187,9 +186,9 @@ class ConvoConfig(object):
 
 ##### Communicating with the API
 
-In general, I prefer to implement any communication with a RESTful API in a class that can handle the boilerplate of preparing requests and processing the responses, and that's exactly what I've done here [with the `GitHubAPI` class](https://github.com/NickAnderegg/static-conversations/blob/main/convo/api.py#L17).
+In general, I prefer to implement any communication with a RESTful API in a class that can handle the boilerplate of preparing requests and processing responses, as I've done [with the `GitHubAPI` class](https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/api.py#L17).
 
-First, we define a few class attributes that we'll use for building and processing requests, `BASE_USER_AGENT`, `BASE_PATH`, and `UNIVERSAL_KEYS`:
+First, a few class attributes that we'll use for processing requests and responses, `BASE_USER_AGENT`, `BASE_PATH`, and `UNIVERSAL_KEYS`:
 
 ```python
 . . .
@@ -207,7 +206,7 @@ class GitHubAPI(object):
     }
 ```
 
-And in the class's `__init__` method, we specify several instance attributes that store the information we need to prepare requests and `dict`s that store data from responses.
+And in the class's `__init__` method, several attributes will store the information received from our API requests.
 
 ```python
     def __init__(self, /, credentials: dict[str, str]) -> None:
@@ -231,7 +230,7 @@ And in the class's `__init__` method, we specify several instance attributes tha
 
 The three attributes for storing response data, `users`, `issues`, and `issue_comments`, represent the three data types that we will be requesting from the API, with `nodes` storing *every* returned object, keyed by its `node_id` value.
 
-I've elected to store the data returned from the API this way, because it takes advantage of the fact that all objects in Python are passed/assigned by reference, rather than by value. When you assign an object, such as a class instance or `dict` to multiple variables, Python assigns a pointer to the object, rather than the object itself. Thus, changing a value in one object changes means the change is reflected in all variables which point to this object:
+I've elected to store the data this way, because it takes advantage of Python objects being passed by reference, rather than by value. Thus, changing a value in one object changes that value in *all* variables which point to that object:
 
 ```python
 >>> primary_dict = {"id": 12345, "name": "Bob",}
@@ -248,7 +247,7 @@ I've elected to store the data returned from the API this way, because it takes 
 {'id': 12345, 'name': 'Alice'}
 ```
 
-Why is this useful? It allows us to implement de-duplication of the values returned by the API. Remember how the `user` field in issue objects only returns a partial record?
+This allows us to implement de-duplication of API requests. Remember how the `user` field in issue objects only returns a partial record?
 
 ```json
 [
@@ -264,9 +263,9 @@ Why is this useful? It allows us to implement de-duplication of the values retur
     },
 ```
 
-After we make a request to the API to retrieve the full object for the `octocat` user, we can store the resulting object as a `dict` under the `octocat` key within the instance's `users` attribute. Then, when we're processing other issues and issue comments, if we encounter a `user` field, we can check if that username exists as a key in the `users` attribute, and avoid making duplicate requests.
+We can make a request to retrieve the `octocat` user and store the result as a `dict` under the `octocat` key of the `users` attribute. Then, when we're processing other responses, if we encounter a `user` field, we can check if that user record already exists, and avoid making duplicate requests.
 
-We can see this de-duplication in action in the [`_filter_fields()` method](https://github.com/NickAnderegg/static-conversations/blob/main/convo/api.py#L103) of the `GitHubAPI` class:
+We can see this de-duplication in action in the [`_filter_fields()` method](https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/api.py#L103) of `GitHubAPI`:
 
 ```python
     def _filter_fields(
@@ -288,9 +287,9 @@ We can see this de-duplication in action in the [`_filter_fields()` method](http
         return filtered
 ```
 
-The primary purpose of the above method is to filter out irrelevant fields that are returned by the GitHub API. When we call this method, we pass `resp`, the raw JSON response from the API, and `filter_keys`, the set of object keys that we want to retain from the result. This set is combined with the `UNIVERSAL_KEYS` class attribute discussed previously to create the full set of keys to retain.
+This method filters out irrelevant fields returned by the API. When we call it, we pass `resp`, the JSON response from the API, and `filter_keys`, the set of fields that we want to retain from the result. This set is combined with the `UNIVERSAL_KEYS` class attribute to create the full set of keys to retain.
 
-Within this method, we create a new variable called `filtered`, which is a `dict` containing only the key-value pairs specified in the set of keys to retain. Following that, it checks to see if the `filtered` dict contains a `user` key, and if it does, passes the username to the [`get_user()` method](https://github.com/NickAnderegg/static-conversations/blob/main/convo/api.py#L203), shown here:
+If the `filtered` dict contains a `user` key, the method passes that username to the [`get_user()` method](https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/api.py#L203):
 
 ```python
     def get_user(self, username):
@@ -307,11 +306,11 @@ Within this method, we create a new variable called `filtered`, which is a `dict
         return user
 ```
 
-The first thing this method does is check to see if the value passed in the `username` argument is present in the instance's `users` attribute. If it is already present, it returns the object we've already retrieved, only making a new request to the API if the information for that user has not already been retrieved. This avoids making repeated requests to the GitHub API for the same information.
+If the value passed in the `username` argument is already in the `users` attribute, it returns the existing record. A request to the API is only made if the information we need is missing, avoiding duplicate API requests.
 
 ##### Tying it all together
 
-Now, let's take a look at the main `convo` module and the `CommentManager` class within, which implements the business logic that ties everything together:
+Now, let's take a look at the main `convo` module and the `CommentManager` class within, which ties everything together:
 
 ```python
 class CommentManager(object):
@@ -335,7 +334,7 @@ config = ConvoConfig()
 self.credentials = config.credentials
 ```
 
-Then, we check the working directory from which the app is being run and ensure that a `data/` directory exists. The `data/` directory is where Hugo will pull data for rendering each post's comments section.
+Then, we ensure that a `data/` directory exists. The `data/` directory is where Hugo will pull data for rendering comments.
 
 ```python
 self.working_dir = Path.cwd()
@@ -344,7 +343,7 @@ self.output_dir = self.working_dir / "data"
 self.output_dir.mkdir(parents=True, exist_ok=True)
 ```
 
-Finally, we pass the credentials to create a `GitHubAPI` instance that we'll use to communicate with the GitHub API:
+Finally, we pass the credentials to create a `GitHubAPI` instance that will communicate with the API:
 
 ```python
 self.api = GitHubAPI(credentials=self.credentials)
@@ -380,7 +379,7 @@ We're ready to go! A call to the `load_comments()` method of the manager object 
             json.dump(comment_mapping, f, indent=4)
 ```
 
-The end result here is a `data/` directory containing all of the processed data from our API requests. The `data/comments/` directory contains individual JSON files representing each top-level comment (GitHub's issues) and each reply (GitHub's comments on issues), named for the `id` field returned by the API. The `data/commenters/` directory holds a single JSON file for each commenter.
+The result is a `data/` directory containing the processed data from our API requests. The `data/comments/` directory has an individual JSON file for each comment, named for the `id` returned by the API. The `data/commenters/` directory holds a JSON file for each commenter.
 
 ```
 ❯ tree data
@@ -395,7 +394,7 @@ data
     └── 868075880.json
 ```
 
-Finally, the `comment_mapping.json` file contains a JSON object which maps each top-level comment to the page which is should appear under:
+Finally, the `comment_mapping.json` file contains a mapping of each comment to the page where it should appear:
 
 ```
 ❯ cat data/comment_mapping.json
@@ -409,9 +408,9 @@ Finally, the `comment_mapping.json` file contains a JSON object which maps each 
 
 ## Usage
 
-As mentioned above, the `convo.console` module is nothing more than a lightweight wrapper that calls the classes that do the actually processing. It has been implemented this way because it provides a skeleton structure that will mean that future expansion will require minimal refactoring.
+As mentioned above, the `convo.console` module is a lightweight wrapper that calls the tool's business logic. It is implemented this way to provide a skeleton for future functionality.
 
-Although `console` may be the simplest sub-module, but it's also the largest because of a significant amount of boilerplate code in place that will make complex logging and debugging simpler to implement. The most important feature of this module is [the `cli()` method in `convo/console/__init__.py`](https://github.com/NickAnderegg/static-conversations/blob/main/convo/console/__init__.py#L41), which initializes a `CommentManager`:
+Although `console` may be the simplest sub-module, it's also the largest because of a significant amount of boilerplate code that will make it possible to implement powerful logging and debugging features. The most important feature of this module is [the `cli()` method in `convo/console/__init__.py`](https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/console/__init__.py#L41), which initializes a `CommentManager`:
 
 ```python
 def cli(ctx, verbosity, quietness, **kwargs):
@@ -419,14 +418,14 @@ def cli(ctx, verbosity, quietness, **kwargs):
     ctx.manager = CommentManager()
 ```
 
-And equally important is [the `cli()` method in `convo/console/commands/load.py`](https://github.com/NickAnderegg/static-conversations/blob/main/convo/console/commands/load.py#L19), which triggers the `CommentManager` to load comment from the API:
+And equally important is [the `cli()` method in `convo/console/commands/load.py`](https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/console/commands/load.py#L19), which triggers the `CommentManager` to load comment from the API:
 
 ```python
 def cli(ctx):
     ctx.manager.load_comments()
 ```
 
-After we've installed this package in a workflow, we can call `convo load` to load the comment manager, pull the relevant data from the GitHub API, parse the responses, and write them out to filesystem where Hugo expects to find them. Here's [`process-comments.yml` workflow file from the repository that hosts this site](https://github.com/NickAnderegg/static-conversations-demo/blob/main/.github/workflows/process-comments.yml), which contains the magic that allows this static site to have dynamic comments:
+After we've installed this package in a workflow, we can call `convo load` to load the comment manager, pull data from the API, parse the responses, and write them to filesystem where Hugo expects to find them. Here's the [`process-comments.yml` workflow file from the repository that hosts this site](https://github.com/NickAnderegg/static-conversations-demo/blob/aa4bd0e9670f977fed6738f6167f6d92267eb4ca/.github/workflows/process-comments.yml), which allows this static site to have dynamic comments:
 
 ```yaml
 name: parse comments from issues
@@ -469,4 +468,4 @@ jobs:
           git push origin main
 ```
 
-And if you look just below this paragraph, you should see a comments section generated from the issues and issue comments on the repository at <https://github.com/NickAnderegg/static-conversations-demo/issues>!
+And if you look just below this paragraph, you should see a fully-funcational comments section generated from the issues on the repository at <https://github.com/NickAnderegg/static-conversations-demo/issues>!
