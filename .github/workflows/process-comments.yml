@@ -18,6 +18,8 @@ on:
 jobs:
   process-comments:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout the repository locally
@@ -28,6 +30,7 @@ jobs:
 
       - name: Install the Static Conversations tool
         run: |
+          sudo apt-get install python3.9
           gh release download -R NickAnderegg/static-conversations --pattern '*.whl'
           pip install ./static_conversations*.whl
 
