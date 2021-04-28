@@ -49,19 +49,18 @@
 <p>I was uncertain about whether or not to offer a comments section. The biggest argument in favor of comments sections is that they give readers an opportunity to engage directly with content authors. However, the cons abound:</p>
 <ul>
 <li>Comments sections that aren&rsquo;t closely monitored often turn into spam-filled cesspools.</li>
-<li>Providing a system to log in and manage comments, which requires a database backend, is a significant burden for a website built with a static site generator.</li>
-<li>Integrating with an external service (e.g. Disqus) means that you&rsquo;re reliant on a third-party. If the company folds or pivots, all of that content may be lost. Plus, you&rsquo;re piping your readers' information directly to an external party.</li>
-<li>Even a comments section with a strong spam filter can be an attractive target for trolls.</li>
+<li>Providing a system to log in and manage comments, which requires a database backend, is difficult with a static site generator.</li>
+<li>Integrating with an external service (e.g. Disqus) means that you&rsquo;re reliant on an external service to host the content.</li>
 </ul>
-<p>Initially, I didn&rsquo;t feel that the benefit of direct engagement with readers outweighed the negative side of comments sections. That is, until I noticed an existing tool that could be turned into a discussion forum by implementing a lightweight wrapper: GitHub Issues.</p>
-<p>Over the years, I&rsquo;ve seen GitHub repos used to <a href="https://github.com/Wren6991/PicoDVI">showcase various one-off demo projects</a>, and the <code>Issues</code> tab on those projects often fills with follow-up questions and suggestions for improvement—the same type of content you might find in a dedicated comments section. It occurred to me that this aspect of GitHub Issues could be intentionally harnessed to provide a comments section for a blog built with a static site generator!</p>
+<p>Initially, I didn&rsquo;t feel that the benefit of direct engagement outweighed the negative side of comments sections. That is, until I realized an existing tool could be turned into a discussion forum: GitHub Issues.</p>
+<p>Over the years, I&rsquo;ve seen GitHub repos used to <a href="https://github.com/Wren6991/PicoDVI">showcase various one-off demo projects</a>, and the &ldquo;Issues&rdquo; on those projects are often follow-up questions and suggestions for improvement—the same content you might find in a comments section. I decided to use this aspect of GitHub Issues to provide a backend for a comments section for a blog built with a static site generator!</p>
 <h2 id="implementation">Implementation</h2>
-<p>How can this be accomplished? It only requires a few tools:</p>
+<p>How can this be accomplished? It requires a few tools:</p>
 <ul>
-<li>The Issues section for this site&rsquo;s repository, where the content will live.</li>
-<li>The GitHub API, which can retrieve that content.</li>
+<li>The Issues tab for this site&rsquo;s repository, where the comments will live.</li>
+<li>The GitHub API, to retrieve that content.</li>
 <li>GitHub Actions, to automatically re-build the site with all of the current comments.</li>
-<li>A lightweight command-line interface to tie all of the pieces together.</li>
+<li>A lightweight command-line tool to tie all of the pieces together.</li>
 </ul>
 <p>This post is going to focus on how I built the CLI that acts as the glue for all of these pieces: an app that I&rsquo;m calling <a href="https://github.com/NickAnderegg/static-conversations">Static Conversations</a>.</p>
 <div class="w-4/5 mx-auto bg-blue-200 rounded my-16" role="alert">
@@ -73,7 +72,7 @@
     
   </div>
 
-  <div class="w-100 p-4"> All links to the Static Conversations repository in this post will be pinned to the <a href="https://github.com/NickAnderegg/static-conversations/tree/88dfb2441c03d8f9ee2f6ef338bb237a81a9e603">tree at commit <code>88dfb24</code></a>. The head of the <code>main</code> branch of this repo may change significantly over time.</div>
+  <div class="w-100 p-4"> All links to the Static Conversations repository in this post will be pinned to the <a href="https://github.com/NickAnderegg/static-conversations/tree/a6aba5cb742dfa05dbce93ed629d642e92e16416">tree at commit <code>a6aba5c</code></a>. The head of the <code>main</code> branch of this repo may change significantly over time.</div>
 
 </div>
 
@@ -86,14 +85,14 @@
     
   </div>
 
-  <div class="w-100 p-4"> Any occurrence of three dots separated by spaces, e.g. &ldquo;<code>. . .</code>&rdquo; within code blocks indicate code that was removed for brevity. In many places, docstrings and comments have also been removed from code examples without indication.</div>
+  <div class="w-100 p-4"> Any occurrence of three dots separated by spaces, e.g. &ldquo;<code>. . .</code>&rdquo; within code blocks indicate code that was removed for brevity.</div>
 
 </div>
 
 <h3 id="getting-data-from-the-api">Getting Data from the API</h3>
-<p>Surprisingly, we only need to call 2-3 API endpoints to get <em>all</em> of the data necessary to implement a full-featured comment management tool! A big reason for this is that each call to the GitHub API returns a significant number of the nodes that connect to the object returned by each endpoint.</p>
+<p>Surprisingly, we only need to call 2-3 API endpoints to get <em>all</em> of the data needed for a good comments section! That&rsquo;s because each call to the GitHub API returns a subset of the child nodes of the requested object.</p>
 <h4 id="getting-the-repos-issues"><code>GET</code>ting the repo&rsquo;s issues</h4>
-<p>A single <code>GET</code> request made to <code>/repos/{owner}/{repo}/issues</code> returns not only <a href="https://docs.github.com/en/rest/reference/issues#list-repository-issues">a list of the issues associated with a repository</a>, but also an object representing the most important data of the <code>user</code> and <code>labels</code> fields, among other. This provides us with most of the information we need to render top-level comments. Here is the example response that GitHub provides for this endpoint (with the fields that are not relevant to our use case manually removed):</p>
+<p>A single <code>GET</code> request made to <code>/repos/{owner}/{repo}/issues</code> returns not only <a href="https://docs.github.com/en/rest/reference/issues#list-repository-issues">a list of the issues associated with a repository</a>, but also fields like <code>user</code> and <code>labels</code>, among others. This gives us most of the information we need to render top-level comments. Here is the example response that GitHub provides for this endpoint (with irrelevant fields manually removed):</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">[
   {
     <span style="color:#f92672">&#34;id&#34;</span>: <span style="color:#ae81ff">1</span>,
@@ -131,7 +130,7 @@
   }
 ]
 </code></pre></div><h4 id="polling-for-replies">Polling for replies</h4>
-<p>If we want to allow our commenters to reply to other comments, they can do so by posting comments on the issues that represent the top-level comments. A <code>GET</code> request to the <code>/repos/{owner}/{repo}/issues/{issue_number}/comments</code> endpoint, substituting the issue&rsquo;s <code>number</code> field for <code>{issue_number}</code> in the API request path, returns all replies to a top-level comment. Here is the <a href="https://docs.github.com/en/rest/reference/issues#list-issue-comments">sample response</a> that GitHub provides for this endpoint, again with irrelevant fields removed:</p>
+<p>If we want to allow comment replies, users can post comments on the issue that represents a top-level comment. A <code>GET</code> request to the <code>/repos/{owner}/{repo}/issues/{issue_number}/comments</code> endpoint, substituting the issue&rsquo;s <code>number</code> field into the API request path, returns all replies to a top-level comment. Here is a <a href="https://docs.github.com/en/rest/reference/issues#list-issue-comments">sample response</a> that GitHub provides for this endpoint:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">[
   {
     <span style="color:#f92672">&#34;id&#34;</span>: <span style="color:#ae81ff">1</span>,
@@ -151,7 +150,7 @@
   }
 ]
 </code></pre></div><h4 id="learning-more-about-each-commenter">Learning more about each commenter</h4>
-<p>Although most endpoints of the GitHub API return the nodes connected to the object returned by each endpoint, those responses don&rsquo;t necessarily contain <em>all</em> of the fields present in the connected nodes. For our particular use case, we&rsquo;ll need to make an additional <code>GET</code> request to <code>/users/{username}</code> for each commenter. Unfortunately, this request to get the four additional fields relevant to us (<code>name</code>, <code>bio</code>, <code>created_at</code>, and <code>updated_at</code>) requires GitHub to return an object with 23 irrelevant fields. Those have been removed from the example response presented here:</p>
+<p>Although most endpoints of the API return the child nodes of the requested object, those responses don&rsquo;t contain <em>all</em> of the child&rsquo;s fields. In this case, we&rsquo;ll need to make an additional <code>GET</code> request to <code>/users/{username}</code> for each commenter to get all of the fields we need:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
   <span style="color:#f92672">&#34;login&#34;</span>: <span style="color:#e6db74">&#34;octocat&#34;</span>,
   <span style="color:#f92672">&#34;id&#34;</span>: <span style="color:#ae81ff">1</span>,
@@ -163,26 +162,26 @@
   <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2008-01-14T04:33:35Z&#34;</span>,
   <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2008-01-14T04:33:35Z&#34;</span>
 }
-</code></pre></div><p>These fields aren&rsquo;t critical, but they add some polish to our comments section. The <code>name</code> and <code>bio</code> fields let us show who is commenting, while the <code>created_at</code> and <code>updated_at</code> fields are useful if we want to implement some rudimentary filtering, such as filtering out comments from brand new accounts.</p>
+</code></pre></div><p>These additional fields aren&rsquo;t critical, but they add some polish to the comments section. The <code>name</code> and <code>bio</code> fields tell readers about the commenter, while the <code>created_at</code> field could be used to filter out comments from new accounts.</p>
 <h3 id="building-the-cli-tool">Building the CLI Tool</h3>
-<p>Modern Python tools like <a href="https://python-poetry.org/">Poetry</a> make it much easier to build and run a CLI than it has been in the past. Once we define our dependencies in the <code>pyproject.toml</code> file, <a href="https://github.com/NickAnderegg/static-conversations/blob/88dfb2441c03d8f9ee2f6ef338bb237a81a9e603/pyproject.toml#L26">just two lines</a> allow us to specify how the library should be run when called from the command line:</p>
+<p>Using <a href="https://python-poetry.org/">Poetry</a> for package management, we can define our dependencies in the <code>pyproject.toml</code> file, and in <a href="https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/pyproject.toml#L26">just two lines</a>, specify how the library should be run when called from the command line:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">. . .
 [<span style="color:#a6e22e">tool</span>.<span style="color:#a6e22e">poetry</span>.<span style="color:#a6e22e">scripts</span>]
 <span style="color:#a6e22e">convo</span> = <span style="color:#e6db74">&#39;convo.console:cli&#39;</span>
 . . .
-</code></pre></div><p>Then when we run <code>poetry run convo</code> from the command line, Poetry will call the <code>cli()</code> function present in the <code>convo.console</code> module.</p>
+</code></pre></div><p>Then, <code>poetry run convo</code> on the command line will call the <code>cli()</code> function present in the <code>convo.console</code> module.</p>
 <h4 id="structuring-the-project">Structuring the project</h4>
-<p>When I write any new project from scratch, I always struggle with balancing the principle of <a href="https://martinfowler.com/bliki/Yagni.html">&ldquo;You Aren&rsquo;t Gonna Need It&rdquo;</a> and the dread of having to refactor something in the future if I want to change even the most basic functionality. The approach I often take to this problem—and the approach I&rsquo;ve taken here—is to freely add utility modules/classes/functions in any areas where it won&rsquo;t result in significant extra work in the short-term, especially if these additions just separate the various functional components of the project.</p>
+<p>When I write any new project from scratch, I always struggle with balancing the principle of <a href="https://martinfowler.com/bliki/Yagni.html">&ldquo;You Aren&rsquo;t Gonna Need It&rdquo;</a> and the dread of having to refactor something in the future if I want to add functionality. The approach I often take—and the approach I&rsquo;ve taken here—is to freely add utility modules/classes/functions if they won&rsquo;t result in significant extra work in the short-term, especially if these additions help separate the functional components of the project.</p>
 <p>In this case, we have four (sub-)modules:</p>
 <ul>
 <li><strong><code>convo</code>:</strong> The <code>__init__.py</code> implements the <code>CommentManager</code> class, which manages and processes all the data we need for our comments section.</li>
-<li><strong><code>convo.api</code>:</strong> This module implements the <code>GitHubAPI</code> class, which manages communication with the GitHub API.</li>
-<li><strong><code>convo.config</code>:</strong> A module that stores configuration for the tool. At this stage, the tool&rsquo;s configuration is read from environment variables.</li>
-<li><strong><code>convo.console</code>:</strong> In its current form, this is essentially just a lightweight wrapper that calls methods provided by a <code>CommentManager</code> instance.</li>
+<li><strong><code>convo.api</code>:</strong> Implements the <code>GitHubAPI</code> class, which handles communication with the API.</li>
+<li><strong><code>convo.config</code>:</strong> Stores configuration for the tool.</li>
+<li><strong><code>convo.console</code>:</strong> In its current form, this is only a lightweight wrapper that calls methods provided by a <code>CommentManager</code> instance.</li>
 </ul>
 <h5 id="configuring-the-app">Configuring the app</h5>
-<p>The simplest of these four modules is <code>convo.config</code>. Because this tool is intended to run in a GitHub Workflow, we can read get everything we need to authenticate with the API from <a href="https://docs.github.com/en/actions/reference/environment-variables#default-environment-variables">environment variables provided by the runner environment</a>. The variables we need to read are <code>GITHUB_ACTOR</code>, to determine the user which we will use to authenticate; <code>GITHUB_REPOSITORY</code>, which tells us where our workflow is running, and <code>GITHUB_TOKEN</code>; which we will use <a href="https://docs.github.com/en/actions/reference/authentication-in-a-workflow#about-the-github_token-secret">to authenticate with the API</a>.</p>
-<p>We also <a href="https://github.com/NickAnderegg/static-conversations/blob/main/convo/config/__init__.py#L57">implement a <code>get_env()</code></a> static method that allows us to pass an arbitrary number of positional arguments specifying which environment variables to read, in order of priority. This way, if we have some reason to override the default <code>GITHUB_TOKEN</code> value, we can specify a <code>CONVO_TOKEN</code> or <code>GH_TOKEN</code> variable with the override value.</p>
+<p>The simplest module is <code>convo.config</code>. Because this tool is intended to run in a GitHub Workflow, we can read everything we need to authenticate with the API from <a href="https://docs.github.com/en/actions/reference/environment-variables#default-environment-variables">environment variables</a>: <code>GITHUB_ACTOR</code>, <code>GITHUB_REPOSITORY</code>, and <a href="https://docs.github.com/en/actions/reference/authentication-in-a-workflow#about-the-github_token-secret"><code>GITHUB_TOKEN</code></a>.</p>
+<p>It <a href="https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/config/__init__.py#L57">implements a <code>get_env()</code></a> method that accepts arbitrary positional arguments specifying which environment variables to read, in order of priority. This way, we can override the <code>GITHUB_TOKEN</code> value, for example, by specifying a <code>CONVO_TOKEN</code> variable.</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#f92672">.</span> <span style="color:#f92672">.</span> <span style="color:#f92672">.</span>
 <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ConvoConfig</span>(object):
     <span style="color:#66d9ef">def</span> __init__(self):
@@ -204,8 +203,8 @@
 
         <span style="color:#66d9ef">return</span> default
 </code></pre></div><h5 id="communicating-with-the-api">Communicating with the API</h5>
-<p>In general, I prefer to implement any communication with a RESTful API in a class that can handle the boilerplate of preparing requests and processing the responses, and that&rsquo;s exactly what I&rsquo;ve done here <a href="https://github.com/NickAnderegg/static-conversations/blob/main/convo/api.py#L17">with the <code>GitHubAPI</code> class</a>.</p>
-<p>First, we define a few class attributes that we&rsquo;ll use for building and processing requests, <code>BASE_USER_AGENT</code>, <code>BASE_PATH</code>, and <code>UNIVERSAL_KEYS</code>:</p>
+<p>In general, I prefer to implement any communication with a RESTful API in a class that can handle the boilerplate of preparing requests and processing responses, as I&rsquo;ve done <a href="https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/api.py#L17">with the <code>GitHubAPI</code> class</a>.</p>
+<p>First, a few class attributes that we&rsquo;ll use for processing requests and responses, <code>BASE_USER_AGENT</code>, <code>BASE_PATH</code>, and <code>UNIVERSAL_KEYS</code>:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#f92672">.</span> <span style="color:#f92672">.</span> <span style="color:#f92672">.</span>
 <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">GitHubAPI</span>(object):
 
@@ -219,7 +218,7 @@
         <span style="color:#e6db74">&#34;created_at&#34;</span>,
         <span style="color:#e6db74">&#34;updated_at&#34;</span>,
     }
-</code></pre></div><p>And in the class&rsquo;s <code>__init__</code> method, we specify several instance attributes that store the information we need to prepare requests and <code>dict</code>s that store data from responses.</p>
+</code></pre></div><p>And in the class&rsquo;s <code>__init__</code> method, several attributes will store the information received from our API requests.</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#66d9ef">def</span> __init__(self, <span style="color:#f92672">/</span>, credentials: dict[str, str]) <span style="color:#f92672">-&gt;</span> None:
         self<span style="color:#f92672">.</span>credentials: dict[str, str] <span style="color:#f92672">=</span> credentials
         self<span style="color:#f92672">.</span>repo: str <span style="color:#f92672">=</span> credentials[<span style="color:#e6db74">&#34;repo&#34;</span>]
@@ -238,7 +237,7 @@
             <span style="color:#e6db74">&#34;Authorization&#34;</span>: f<span style="color:#e6db74">&#34;token {self.credentials[&#39;auth&#39;]}&#34;</span>,
         }
 </code></pre></div><p>The three attributes for storing response data, <code>users</code>, <code>issues</code>, and <code>issue_comments</code>, represent the three data types that we will be requesting from the API, with <code>nodes</code> storing <em>every</em> returned object, keyed by its <code>node_id</code> value.</p>
-<p>I&rsquo;ve elected to store the data returned from the API this way, because it takes advantage of the fact that all objects in Python are passed/assigned by reference, rather than by value. When you assign an object, such as a class instance or <code>dict</code> to multiple variables, Python assigns a pointer to the object, rather than the object itself. Thus, changing a value in one object changes means the change is reflected in all variables which point to this object:</p>
+<p>I&rsquo;ve elected to store the data this way, because it takes advantage of Python objects being passed by reference, rather than by value. Thus, changing a value in one object changes that value in <em>all</em> variables which point to that object:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#f92672">&gt;&gt;&gt;</span> primary_dict <span style="color:#f92672">=</span> {<span style="color:#e6db74">&#34;id&#34;</span>: <span style="color:#ae81ff">12345</span>, <span style="color:#e6db74">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Bob&#34;</span>,}
 <span style="color:#f92672">&gt;&gt;&gt;</span> x <span style="color:#f92672">=</span> primary_dict
 <span style="color:#f92672">&gt;&gt;&gt;</span> y <span style="color:#f92672">=</span> primary_dict
@@ -251,7 +250,7 @@
 
 <span style="color:#f92672">&gt;&gt;&gt;</span> <span style="color:#66d9ef">print</span>(primary_dict)
 {<span style="color:#e6db74">&#39;id&#39;</span>: <span style="color:#ae81ff">12345</span>, <span style="color:#e6db74">&#39;name&#39;</span>: <span style="color:#e6db74">&#39;Alice&#39;</span>}
-</code></pre></div><p>Why is this useful? It allows us to implement de-duplication of the values returned by the API. Remember how the <code>user</code> field in issue objects only returns a partial record?</p>
+</code></pre></div><p>This allows us to implement de-duplication of API requests. Remember how the <code>user</code> field in issue objects only returns a partial record?</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">[
   {
     <span style="color:#f92672">&#34;title&#34;</span>: <span style="color:#e6db74">&#34;Found a bug&#34;</span>,
@@ -263,8 +262,8 @@
       <span style="color:#f92672">&#34;avatar_url&#34;</span>: <span style="color:#e6db74">&#34;https://github.com/images/error/octocat_happy.gif&#34;</span>,
       <span style="color:#f92672">&#34;html_url&#34;</span>: <span style="color:#e6db74">&#34;https://github.com/octocat&#34;</span>
     },
-</code></pre></div><p>After we make a request to the API to retrieve the full object for the <code>octocat</code> user, we can store the resulting object as a <code>dict</code> under the <code>octocat</code> key within the instance&rsquo;s <code>users</code> attribute. Then, when we&rsquo;re processing other issues and issue comments, if we encounter a <code>user</code> field, we can check if that username exists as a key in the <code>users</code> attribute, and avoid making duplicate requests.</p>
-<p>We can see this de-duplication in action in the <a href="https://github.com/NickAnderegg/static-conversations/blob/main/convo/api.py#L103"><code>_filter_fields()</code> method</a> of the <code>GitHubAPI</code> class:</p>
+</code></pre></div><p>We can make a request to retrieve the <code>octocat</code> user and store the result as a <code>dict</code> under the <code>octocat</code> key of the <code>users</code> attribute. Then, when we&rsquo;re processing other responses, if we encounter a <code>user</code> field, we can check if that user record already exists, and avoid making duplicate requests.</p>
+<p>We can see this de-duplication in action in the <a href="https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/api.py#L103"><code>_filter_fields()</code> method</a> of <code>GitHubAPI</code>:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">_filter_fields</span>(
         self,
         resp: dict[str, t<span style="color:#f92672">.</span>Any],
@@ -282,8 +281,8 @@
             filtered[<span style="color:#e6db74">&#34;user&#34;</span>] <span style="color:#f92672">=</span> user
 
         <span style="color:#66d9ef">return</span> filtered
-</code></pre></div><p>The primary purpose of the above method is to filter out irrelevant fields that are returned by the GitHub API. When we call this method, we pass <code>resp</code>, the raw JSON response from the API, and <code>filter_keys</code>, the set of object keys that we want to retain from the result. This set is combined with the <code>UNIVERSAL_KEYS</code> class attribute discussed previously to create the full set of keys to retain.</p>
-<p>Within this method, we create a new variable called <code>filtered</code>, which is a <code>dict</code> containing only the key-value pairs specified in the set of keys to retain. Following that, it checks to see if the <code>filtered</code> dict contains a <code>user</code> key, and if it does, passes the username to the <a href="https://github.com/NickAnderegg/static-conversations/blob/main/convo/api.py#L203"><code>get_user()</code> method</a>, shown here:</p>
+</code></pre></div><p>This method filters out irrelevant fields returned by the API. When we call it, we pass <code>resp</code>, the JSON response from the API, and <code>filter_keys</code>, the set of fields that we want to retain from the result. This set is combined with the <code>UNIVERSAL_KEYS</code> class attribute to create the full set of keys to retain.</p>
+<p>If the <code>filtered</code> dict contains a <code>user</code> key, the method passes that username to the <a href="https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/api.py#L203"><code>get_user()</code> method</a>:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_user</span>(self, username):
         <span style="color:#66d9ef">if</span> username <span style="color:#f92672">in</span> self<span style="color:#f92672">.</span>users:
             <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>users[username]
@@ -296,9 +295,9 @@
         self<span style="color:#f92672">.</span>users[user[<span style="color:#e6db74">&#34;login&#34;</span>]] <span style="color:#f92672">=</span> user
 
         <span style="color:#66d9ef">return</span> user
-</code></pre></div><p>The first thing this method does is check to see if the value passed in the <code>username</code> argument is present in the instance&rsquo;s <code>users</code> attribute. If it is already present, it returns the object we&rsquo;ve already retrieved, only making a new request to the API if the information for that user has not already been retrieved. This avoids making repeated requests to the GitHub API for the same information.</p>
+</code></pre></div><p>If the value passed in the <code>username</code> argument is already in the <code>users</code> attribute, it returns the existing record. A request to the API is only made if the information we need is missing, avoiding duplicate API requests.</p>
 <h5 id="tying-it-all-together">Tying it all together</h5>
-<p>Now, let&rsquo;s take a look at the main <code>convo</code> module and the <code>CommentManager</code> class within, which implements the business logic that ties everything together:</p>
+<p>Now, let&rsquo;s take a look at the main <code>convo</code> module and the <code>CommentManager</code> class within, which ties everything together:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">CommentManager</span>(object):
     <span style="color:#66d9ef">def</span> __init__(self):
 
@@ -314,12 +313,12 @@
 </code></pre></div><p>First, we instantiate the <code>ConvoConfig</code> class, which will read the app&rsquo;s configuration from environment variables, and assign it to the manager&rsquo;s <code>credentials</code> attribute:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">config <span style="color:#f92672">=</span> ConvoConfig()
 self<span style="color:#f92672">.</span>credentials <span style="color:#f92672">=</span> config<span style="color:#f92672">.</span>credentials
-</code></pre></div><p>Then, we check the working directory from which the app is being run and ensure that a <code>data/</code> directory exists. The <code>data/</code> directory is where Hugo will pull data for rendering each post&rsquo;s comments section.</p>
+</code></pre></div><p>Then, we ensure that a <code>data/</code> directory exists. The <code>data/</code> directory is where Hugo will pull data for rendering comments.</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">self<span style="color:#f92672">.</span>working_dir <span style="color:#f92672">=</span> Path<span style="color:#f92672">.</span>cwd()
 
 self<span style="color:#f92672">.</span>output_dir <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>working_dir <span style="color:#f92672">/</span> <span style="color:#e6db74">&#34;data&#34;</span>
 self<span style="color:#f92672">.</span>output_dir<span style="color:#f92672">.</span>mkdir(parents<span style="color:#f92672">=</span>True, exist_ok<span style="color:#f92672">=</span>True)
-</code></pre></div><p>Finally, we pass the credentials to create a <code>GitHubAPI</code> instance that we&rsquo;ll use to communicate with the GitHub API:</p>
+</code></pre></div><p>Finally, we pass the credentials to create a <code>GitHubAPI</code> instance that will communicate with the API:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">self<span style="color:#f92672">.</span>api <span style="color:#f92672">=</span> GitHubAPI(credentials<span style="color:#f92672">=</span>self<span style="color:#f92672">.</span>credentials)
 </code></pre></div><p>We&rsquo;re ready to go! A call to the <code>load_comments()</code> method of the manager object triggers the sequence of calls that process and write out all of our data:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python">    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">load_comments</span>(self):
@@ -347,7 +346,7 @@ self<span style="color:#f92672">.</span>output_dir<span style="color:#f92672">.<
         mapping_file <span style="color:#f92672">=</span> self<span style="color:#f92672">.</span>output_dir <span style="color:#f92672">/</span> <span style="color:#e6db74">&#34;comment_mapping.json&#34;</span>
         <span style="color:#66d9ef">with</span> mapping_file<span style="color:#f92672">.</span>open(<span style="color:#e6db74">&#34;w&#34;</span>, encoding<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;utf-8&#34;</span>) <span style="color:#66d9ef">as</span> f:
             json<span style="color:#f92672">.</span>dump(comment_mapping, f, indent<span style="color:#f92672">=</span><span style="color:#ae81ff">4</span>)
-</code></pre></div><p>The end result here is a <code>data/</code> directory containing all of the processed data from our API requests. The <code>data/comments/</code> directory contains individual JSON files representing each top-level comment (GitHub&rsquo;s issues) and each reply (GitHub&rsquo;s comments on issues), named for the <code>id</code> field returned by the API. The <code>data/commenters/</code> directory holds a single JSON file for each commenter.</p>
+</code></pre></div><p>The result is a <code>data/</code> directory containing the processed data from our API requests. The <code>data/comments/</code> directory has an individual JSON file for each comment, named for the <code>id</code> returned by the API. The <code>data/commenters/</code> directory holds a JSON file for each commenter.</p>
 <pre><code>❯ tree data
 data
 ├── comment_mapping.json
@@ -358,7 +357,7 @@ data
     ├── 827091907.json
     ├── 868074380.json
     └── 868075880.json
-</code></pre><p>Finally, the <code>comment_mapping.json</code> file contains a JSON object which maps each top-level comment to the page which is should appear under:</p>
+</code></pre><p>Finally, the <code>comment_mapping.json</code> file contains a mapping of each comment to the page where it should appear:</p>
 <pre><code>❯ cat data/comment_mapping.json
 {
     &quot;post/some-blog-post&quot;: [
@@ -367,15 +366,15 @@ data
     ]
 }
 </code></pre><h2 id="usage">Usage</h2>
-<p>As mentioned above, the <code>convo.console</code> module is nothing more than a lightweight wrapper that calls the classes that do the actually processing. It has been implemented this way because it provides a skeleton structure that will mean that future expansion will require minimal refactoring.</p>
-<p>Although <code>console</code> may be the simplest sub-module, but it&rsquo;s also the largest because of a significant amount of boilerplate code in place that will make complex logging and debugging simpler to implement. The most important feature of this module is <a href="https://github.com/NickAnderegg/static-conversations/blob/main/convo/console/__init__.py#L41">the <code>cli()</code> method in <code>convo/console/__init__.py</code></a>, which initializes a <code>CommentManager</code>:</p>
+<p>As mentioned above, the <code>convo.console</code> module is a lightweight wrapper that calls the tool&rsquo;s business logic. It is implemented this way to provide a skeleton for future functionality.</p>
+<p>Although <code>console</code> may be the simplest sub-module, it&rsquo;s also the largest because of a significant amount of boilerplate code that will make it possible to implement powerful logging and debugging features. The most important feature of this module is <a href="https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/console/__init__.py#L41">the <code>cli()</code> method in <code>convo/console/__init__.py</code></a>, which initializes a <code>CommentManager</code>:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">cli</span>(ctx, verbosity, quietness, <span style="color:#f92672">**</span>kwargs):
     <span style="color:#f92672">.</span> <span style="color:#f92672">.</span> <span style="color:#f92672">.</span>
     ctx<span style="color:#f92672">.</span>manager <span style="color:#f92672">=</span> CommentManager()
-</code></pre></div><p>And equally important is <a href="https://github.com/NickAnderegg/static-conversations/blob/main/convo/console/commands/load.py#L19">the <code>cli()</code> method in <code>convo/console/commands/load.py</code></a>, which triggers the <code>CommentManager</code> to load comment from the API:</p>
+</code></pre></div><p>And equally important is <a href="https://github.com/NickAnderegg/static-conversations/blob/a6aba5cb742dfa05dbce93ed629d642e92e16416/convo/console/commands/load.py#L19">the <code>cli()</code> method in <code>convo/console/commands/load.py</code></a>, which triggers the <code>CommentManager</code> to load comment from the API:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-python" data-lang="python"><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">cli</span>(ctx):
     ctx<span style="color:#f92672">.</span>manager<span style="color:#f92672">.</span>load_comments()
-</code></pre></div><p>After we&rsquo;ve installed this package in a workflow, we can call <code>convo load</code> to load the comment manager, pull the relevant data from the GitHub API, parse the responses, and write them out to filesystem where Hugo expects to find them. Here&rsquo;s <a href="https://github.com/NickAnderegg/static-conversations-demo/blob/main/.github/workflows/process-comments.yml"><code>process-comments.yml</code> workflow file from the repository that hosts this site</a>, which contains the magic that allows this static site to have dynamic comments:</p>
+</code></pre></div><p>After we&rsquo;ve installed this package in a workflow, we can call <code>convo load</code> to load the comment manager, pull data from the API, parse the responses, and write them to filesystem where Hugo expects to find them. Here&rsquo;s the <a href="https://github.com/NickAnderegg/static-conversations-demo/blob/aa4bd0e9670f977fed6738f6167f6d92267eb4ca/.github/workflows/process-comments.yml"><code>process-comments.yml</code> workflow file from the repository that hosts this site</a>, which allows this static site to have dynamic comments:</p>
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="color:#f92672">name</span>: <span style="color:#ae81ff">parse comments from issues</span>
 
 <span style="color:#f92672">on</span>:
@@ -414,7 +413,7 @@ data
 </span><span style="color:#e6db74">          git commit -m &#34;[AUTOMATED] update blog comments&#34;
 </span><span style="color:#e6db74">
 </span><span style="color:#e6db74">          git push origin main</span>          
-</code></pre></div><p>And if you look just below this paragraph, you should see a comments section generated from the issues and issue comments on the repository at <a href="https://github.com/NickAnderegg/static-conversations-demo/issues">https://github.com/NickAnderegg/static-conversations-demo/issues</a>!</p>
+</code></pre></div><p>And if you look just below this paragraph, you should see a fully-funcational comments section generated from the issues on the repository at <a href="https://github.com/NickAnderegg/static-conversations-demo/issues">https://github.com/NickAnderegg/static-conversations-demo/issues</a>!</p>
 
     <section id="comments" class="w-3/4 space-y-12 pt-16">
     <h2 class="text-2xl font-bold mb-6">Comments</h2>
