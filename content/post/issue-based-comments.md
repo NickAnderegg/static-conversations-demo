@@ -426,4 +426,47 @@ def cli(ctx):
     ctx.manager.load_comments()
 ```
 
-After we've installed this package using `poetry install`, we can call `poetry run convo load` to load the comment manager, pull the relevant data from the GitHub API, parse the responses, and write them out to filesystem where Hugo expects to find them.
+After we've installed this package in a workflow, we can call `convo load` to load the comment manager, pull the relevant data from the GitHub API, parse the responses, and write them out to filesystem where Hugo expects to find them. Here's [`process-comments.yml` workflow file from the repository that hosts this site](https://github.com/NickAnderegg/static-conversations-demo/blob/main/.github/workflows/process-comments.yml), which contains the magic that allows this static site to have dynamic comments:
+
+```yaml
+name: parse comments from issues
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+. . .
+jobs:
+  process-comments:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout the repository locally
+        uses: actions/checkout@v2
+
+      - name: Install the Static Conversations tool
+        run: |
+          sudo apt-get install python3.9
+          gh release download -R NickAnderegg/static-conversations --pattern '*.whl'
+          python3.9 -m pip install ./static_conversations*.whl
+
+        # Where the magic happens
+      - name: Load comments
+        run: convo load
+
+        # Commit the updated `data/` directory back to this repo and push it
+      - name: Commit updated comment files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+
+          git add ./data
+          git commit -m "[AUTOMATED] update blog comments"
+
+          git push origin main
+```
+
+And if you look just below this paragraph, you should see a comments section generated from the issues and issue comments on the repository at <https://github.com/NickAnderegg/static-conversations-demo/issues>!
